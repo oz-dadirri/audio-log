@@ -593,8 +593,16 @@ function render() {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(f);
   }
+  // Sort day sections newest-first (group order otherwise just follows
+  // upload/id order, which drifts from actual recording date once files
+  // arrive late — e.g. a Drive sync backfilling an old recording), and
+  // sort each section's items by actual recording time, newest first.
+  const sections = [...groups.entries()].sort(
+    (a, b) => new Date(b[1][0].created_at) - new Date(a[1][0].created_at));
+  for (const [, items] of sections)
+    items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   content.innerHTML = "";
-  for (const [label, items] of groups) {
+  for (const [label, items] of sections) {
     const day = document.createElement("section");
     day.className = "day";
     day.innerHTML = `<h2>${label}<small>${items.length}</small></h2><div class="grid"></div>`;
