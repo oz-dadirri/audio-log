@@ -21,14 +21,25 @@ _SEGMENT = re.compile(r"^\*\*\[(\d+:\d{2})\]\*\*\s*(.*)$")
 def _embed(texts: list[str]) -> np.ndarray:
     headers = ({"Authorization": f"Bearer {config.LLM_API_KEY}"}
                if config.LLM_API_KEY else {})
-    resp = httpx.post(
-        f"{config.LLM_API_URL}/api/embed",
-        json={"model": config.EMBED_MODEL, "input": texts},
-        headers=headers,
-        timeout=120,
-    )
-    resp.raise_for_status()
-    vectors = np.array(resp.json()["embeddings"], dtype=np.float32)
+    if config.LLM_OPENAI_STYLE:
+        resp = httpx.post(
+            f"{config.LLM_API_URL}/embeddings",
+            json={"model": config.EMBED_MODEL, "input": texts},
+            headers=headers,
+            timeout=120,
+        )
+        resp.raise_for_status()
+        by_index = sorted(resp.json()["data"], key=lambda d: d["index"])
+        vectors = np.array([d["embedding"] for d in by_index], dtype=np.float32)
+    else:
+        resp = httpx.post(
+            f"{config.LLM_API_URL}/api/embed",
+            json={"model": config.EMBED_MODEL, "input": texts},
+            headers=headers,
+            timeout=120,
+        )
+        resp.raise_for_status()
+        vectors = np.array(resp.json()["embeddings"], dtype=np.float32)
     norms = np.linalg.norm(vectors, axis=1, keepdims=True)
     return vectors / np.maximum(norms, 1e-9)
 

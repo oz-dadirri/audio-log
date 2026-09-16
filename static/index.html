@@ -1142,7 +1142,9 @@ async function askAI(question) {
 async function loadModels() {
   const sel = $("modelSelect");
   try {
-    const r = await (await fetch("/api/models")).json();
+    const resp = await fetch("/api/models");
+    const r = await resp.json();
+    if (!resp.ok) throw new Error(r.detail || "cannot reach the LLM API");
     sel.innerHTML = "";
     for (const m of r.models) {
       const o = document.createElement("option");
@@ -1150,8 +1152,8 @@ async function loadModels() {
       o.selected = m === r.current;
       sel.appendChild(o);
     }
-  } catch {
-    sel.innerHTML = "<option>Ollama offline</option>";
+  } catch (e) {
+    sel.innerHTML = `<option>${e.message || "LLM API offline"}</option>`;
   }
 }
 
