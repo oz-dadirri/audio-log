@@ -22,6 +22,30 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# Matches a YYYY-MM-DD date immediately followed by a HH-MM-SS/HH:MM:SS time
+# (separated by a space, "T", or "_"), e.g. "2026-09-06 18:50:11",
+# "2026-07-29T11-43-39", "2026-07-05_19-59-37". Recorder filenames sometimes
+# repeat the date twice (date-only prefix + full datetime); findall + taking
+# the last match skips the bare date and lands on the full timestamp.
+_RECORDED_AT_RE = re.compile(
+    r"(\d{4})-(\d{2})-(\d{2})[ T_](\d{2})[-:](\d{2})[-:](\d{2})"
+)
+
+
+def _parse_recorded_at(filename: str) -> datetime | None:
+    """Best-effort extraction of the actual recording timestamp embedded in a
+    recorder-app filename, so files ingested/uploaded late (e.g. from a Drive
+    sync) are dated by when they were recorded, not when they arrived."""
+    matches = _RECORDED_AT_RE.findall(filename)
+    if not matches:
+        return None
+    try:
+        y, mo, d, h, mi, s = (int(x) for x in matches[-1])
+        return datetime(y, mo, d, h, mi, s, tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
 def _row_factory(cursor):
     """dict_row, but TIMESTAMPTZ columns come back as ISO strings (not datetime
     objects) — callers throughout the app slice/parse created_at/updated_at/
@@ -97,12 +121,13 @@ def _backfill(conn):
 def add_file(sha256: str, filename: str, source_path: str,
              user_id: int | None = None) -> int | None:
     """Insert a new job; returns its id, or None if the hash is already known."""
+    created_at = _parse_recorded_at(filename) or _now()
     with connect() as conn:
         try:
             cur = conn.execute(
                 "INSERT INTO files (sha256, filename, source_path, user_id, "
                 "created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
-                (sha256, filename, source_path, user_id, _now(), _now()),
+                (sha256, filename, source_path, user_id, created_at, _now()),
             )
             return cur.fetchone()["id"]
         except psycopg.errors.UniqueViolation:
