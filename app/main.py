@@ -403,13 +403,18 @@ def ask(body: AskBody, request: Request):
 
 @app.get("/api/models")
 def list_models():
-    """Installed Ollama models plus the currently selected one."""
+    """Installed models plus the currently selected one."""
     try:
         headers = ({"Authorization": f"Bearer {config.LLM_API_KEY}"}
                    if config.LLM_API_KEY else {})
-        resp = httpx.get(f"{config.LLM_API_URL}/api/tags", headers=headers, timeout=5)
-        resp.raise_for_status()
-        models = [m["name"] for m in resp.json().get("models", [])]
+        if config.LLM_OPENAI_STYLE:
+            resp = httpx.get(f"{config.LLM_API_URL}/models", headers=headers, timeout=5)
+            resp.raise_for_status()
+            models = [m["id"] for m in resp.json().get("data", [])]
+        else:
+            resp = httpx.get(f"{config.LLM_API_URL}/api/tags", headers=headers, timeout=5)
+            resp.raise_for_status()
+            models = [m["name"] for m in resp.json().get("models", [])]
     except Exception as e:
         raise HTTPException(502, f"cannot reach the LLM API: {e}")
     return {"models": models,

@@ -63,6 +63,9 @@ WHISPER_API_KEY = os.getenv("WHISPER_API_KEY", "")
 # Chat + embedding models are served by an Ollama-compatible API, same pattern as
 # WHISPER_URL above. Point this at a Tailscale hostname to run it on another Mac.
 LLM_API_URL = os.getenv("LLM_API_URL", "http://localhost:11434").rstrip("/")
+# True for OpenAI-compatible servers (e.g. llama.cpp, vLLM) exposed under a /v1
+# path; false for native Ollama, which uses /api/* endpoints instead.
+LLM_OPENAI_STYLE = "/v1" in LLM_API_URL
 # If set, sent as `Authorization: Bearer ...`. Empty = no auth (plain Ollama).
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "qwen3.6:27b")
